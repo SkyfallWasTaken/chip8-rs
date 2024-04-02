@@ -12,10 +12,25 @@ async fn main() {
     let rom = fs::read("rom.ch8").unwrap();
     let mut machine = Machine::from_rom(&rom);
 
-    for i in 0..40 {
+    loop {
         machine.cycle();
-        if i == 39 {
-            println!("39!");
+
+        clear_background(WHITE);
+
+        for y in 0..SCREEN_HEIGHT {
+            for x in 0..SCREEN_WIDTH {
+                if machine.screen[(x, y)] == true {
+                    draw_rectangle(
+                        x as f32 * SCALE_FACTOR as f32,
+                        y as f32 * SCALE_FACTOR as f32,
+                        SCALE_FACTOR as f32,
+                        SCALE_FACTOR as f32,
+                        BLACK,
+                    );
+                }
+            }
         }
+
+        next_frame().await;
     }
 }
