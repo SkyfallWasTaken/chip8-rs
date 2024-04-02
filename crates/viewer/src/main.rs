@@ -9,11 +9,24 @@ const SCALE_FACTOR: i32 = 10;
 #[macroquad::main("CHIP-8 Emulator")]
 async fn main() {
     let path = env::args().nth(1).expect("No path specified");
+    let cycle_to_log = env::args().nth(2).map(|n| n.parse::<u32>().unwrap());
     let rom = fs::read(path).unwrap();
     let mut machine = Machine::from_rom(&rom);
 
+    let mut current_cycle = 1;
     loop {
         machine.cycle();
+        current_cycle += 1;
+
+        if is_key_down(KeyCode::Right) {
+            log_debug_info(&machine, current_cycle);
+        }
+
+        if let Some(cycle_to_log) = cycle_to_log {
+            if cycle_to_log == current_cycle {
+                log_debug_info(&machine, current_cycle);
+            }
+        }
 
         clear_background(WHITE);
 
@@ -33,4 +46,15 @@ async fn main() {
 
         next_frame().await;
     }
+}
+
+fn log_debug_info(machine: &Machine, cycle_count: u32) {
+    println!("=====BEGIN DEBUG INFO FOR CYCLE {cycle_count}=====");
+    dbg!(&machine.registers);
+    dbg!(&machine.pc);
+    dbg!(&machine.index);
+    dbg!(&machine.st);
+    dbg!(&machine.stack);
+    dbg!(&machine.dt);
+    println!("======END DEBUG INFO FOR CYCLE {cycle_count}======")
 }

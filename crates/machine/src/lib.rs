@@ -70,7 +70,7 @@ impl Machine {
         let x = second_nibble as usize;
         let y = third_nibble as usize;
         let n = fourth_nibble;
-        let nn = third_nibble | fourth_nibble;
+        let nn = (third_nibble << 4) | fourth_nibble;
         let nnn = (second_nibble << 8) | (third_nibble << 4) | fourth_nibble;
 
         match kind {
@@ -121,7 +121,7 @@ impl Machine {
             }
             0x07 => {
                 // Add `nn` to register `x`
-                self.registers[x] += nn as u8;
+                self.registers[x] = self.registers[x].overflowing_add(nn as u8).0;
             }
             0x0A => {
                 // Set index register to `nnn`
