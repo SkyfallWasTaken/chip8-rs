@@ -1,11 +1,9 @@
 use std::fs;
 
 use machine::{Machine, SCREEN_HEIGHT, SCREEN_WIDTH};
-use macroquad::{experimental::coroutines::wait_seconds, prelude::*};
+use macroquad::prelude::*;
 
-const SCALE_FACTOR: i32 = 5;
-
-type Point = (i16, i16);
+const SCALE_FACTOR: i32 = 10;
 
 #[macroquad::main("CHIP-8 Emulator")]
 async fn main() {

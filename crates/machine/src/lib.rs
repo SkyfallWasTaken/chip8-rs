@@ -99,6 +99,8 @@ impl Machine {
                 let mut x_coord = (self.registers[x] % 64) as usize;
                 let mut y_coord = (self.registers[y] % 32) as usize;
 
+                let initial_x = x_coord;
+
                 self.registers[0x0F] = 0;
 
                 for yline in 0..n {
@@ -114,11 +116,14 @@ impl Machine {
 
                         // If you reach the right edge of the screen, stop drawing this row
                         if x_coord == SCREEN_WIDTH - 1 {
+                            // x_coord = initial_x;
                             break;
                         } else {
                             x_coord += 1;
                         }
                     }
+
+                    x_coord = initial_x;
 
                     y_coord += 1;
                     if y_coord == SCREEN_HEIGHT {
@@ -131,10 +136,12 @@ impl Machine {
     }
 }
 
+/// Get the bits of a byte in **big-endian** order.
 fn get_bits(value: u8) -> [bool; 8] {
     let mut bits = [false; 8];
     for i in 0..8 {
-        bits[i] = (value & (1 << i)) != 0;
+        bits[7 - i] = (value & (1 << i)) != 0;
     }
+
     bits
 }
