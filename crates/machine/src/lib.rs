@@ -130,8 +130,8 @@ impl Machine {
 
             0x0D => {
                 // Draw sprite at `x`, `y` with height `n` (DXYN)
-                let mut x_coord = (self.registers[x] % SCREEN_WIDTH) as usize;
-                let mut y_coord = (self.registers[y] % SCREEN_HEIGHT) as usize;
+                let mut x_coord = self.registers[x] as usize % SCREEN_WIDTH;
+                let mut y_coord = self.registers[y] as usize % SCREEN_HEIGHT;
 
                 let initial_x = x_coord;
 
