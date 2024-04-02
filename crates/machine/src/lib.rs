@@ -78,10 +78,43 @@ impl Machine {
                 // Clear the screen
                 self.screen.fill(false);
             }
+
             0x01 => {
                 // Jump to address nnn
                 self.pc = nnn;
             }
+
+            0x02 => {
+                // Call subroutine at nnn
+                self.stack.push(self.pc);
+                self.pc = nnn;
+            }
+
+            0x03 => {
+                // Skip next instruction if register `x` equals `nn`
+                if self.registers[x] == nn as u8 {
+                    self.pc += 2;
+                }
+            }
+            0x04 => {
+                // Skip next instruction if register `x` doesn't equal `nn`
+                if self.registers[x] != nn as u8 {
+                    self.pc += 2;
+                }
+            }
+            0x05 => {
+                // Skip next instruction if register `x` equals register `y`
+                if self.registers[x] == self.registers[y] {
+                    self.pc += 2;
+                }
+            }
+            0x09 => {
+                // Skip next instruction if register `x` doesn't equal register `y`
+                if self.registers[x] != self.registers[y] {
+                    self.pc += 2;
+                }
+            }
+
             0x06 => {
                 // Set register `x` to `nn`
                 self.registers[x] = nn as u8;
@@ -94,10 +127,11 @@ impl Machine {
                 // Set index register to `nnn`
                 self.index = nnn;
             }
+
             0x0D => {
                 // Draw sprite at `x`, `y` with height `n` (DXYN)
-                let mut x_coord = (self.registers[x] % 64) as usize;
-                let mut y_coord = (self.registers[y] % 32) as usize;
+                let mut x_coord = (self.registers[x] % SCREEN_WIDTH) as usize;
+                let mut y_coord = (self.registers[y] % SCREEN_HEIGHT) as usize;
 
                 let initial_x = x_coord;
 
@@ -115,11 +149,9 @@ impl Machine {
                         }
 
                         // If you reach the right edge of the screen, stop drawing this row
+                        x_coord += 1;
                         if x_coord == SCREEN_WIDTH - 1 {
-                            // x_coord = initial_x;
                             break;
-                        } else {
-                            x_coord += 1;
                         }
                     }
 
@@ -131,7 +163,9 @@ impl Machine {
                     }
                 }
             }
-            _ => todo!(),
+            _ => {
+                panic!("Unknown instruction: {:04X}", instr);
+            }
         }
     }
 }

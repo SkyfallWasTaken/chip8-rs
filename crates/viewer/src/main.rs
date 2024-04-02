@@ -1,3 +1,4 @@
+use std::env;
 use std::fs;
 
 use machine::{Machine, SCREEN_HEIGHT, SCREEN_WIDTH};
@@ -7,7 +8,8 @@ const SCALE_FACTOR: i32 = 10;
 
 #[macroquad::main("CHIP-8 Emulator")]
 async fn main() {
-    let rom = fs::read("ibm-logo.ch8").unwrap();
+    let path = env::args().nth(1).expect("No path specified");
+    let rom = fs::read(path).unwrap();
     let mut machine = Machine::from_rom(&rom);
 
     loop {
