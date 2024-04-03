@@ -1,3 +1,4 @@
+use log::{error, warn};
 use ndarray::Array2;
 
 pub const FONT: [u8; 80] = [
@@ -35,6 +36,8 @@ pub struct Machine {
     pub dt: u8,
     pub st: u8,
     pub registers: [u8; 16],
+
+    pub is_dirty: bool,
 }
 
 impl Machine {
@@ -53,6 +56,8 @@ impl Machine {
             dt: 0,
             st: 0,
             registers: [0; 16],
+
+            is_dirty: false,
         }
     }
 
@@ -61,8 +66,7 @@ impl Machine {
             | self.memory[self.pc as usize + 1] as u16;
         self.pc += 2;
 
-        let kind = (instr >> 12) & 0xF;
-
+        let first_nibble = (instr >> 12) & 0xF;
         let second_nibble = (instr >> 8) & 0xF;
         let third_nibble = (instr >> 4) & 0xF;
         let fourth_nibble = instr & 0xF;
@@ -73,62 +77,125 @@ impl Machine {
         let nn = (third_nibble << 4) | fourth_nibble;
         let nnn = (second_nibble << 8) | (third_nibble << 4) | fourth_nibble;
 
-        match kind {
-            0x00 => {
+        match (first_nibble, second_nibble, third_nibble, fourth_nibble) {
+            (0x00, _, _, 0x00) => {
                 // Clear the screen
                 self.screen.fill(false);
+                self.is_dirty = true;
             }
 
-            0x01 => {
+            (0x01, _, _, _) => {
                 // Jump to address nnn
                 self.pc = nnn;
             }
 
-            0x02 => {
+            (0x02, _, _, _) => {
                 // Call subroutine at nnn
                 self.stack.push(self.pc);
                 self.pc = nnn;
             }
+            (0x00, _, _, 0x0E) => {
+                // Returning from a subroutine
+                match self.stack.pop() {
+                    Some(addr) => self.pc = addr,
+                    None => warn!("Attempted to return from a subroutine with an empty stack"),
+                }
+            }
 
-            0x03 => {
+            (0x03, _, _, _) => {
                 // Skip next instruction if register `x` equals `nn`
                 if self.registers[x] == nn as u8 {
                     self.pc += 2;
                 }
             }
-            0x04 => {
+            (0x04, _, _, _) => {
                 // Skip next instruction if register `x` doesn't equal `nn`
                 if self.registers[x] != nn as u8 {
                     self.pc += 2;
                 }
             }
-            0x05 => {
+            (0x05, _, _, _) => {
                 // Skip next instruction if register `x` equals register `y`
                 if self.registers[x] == self.registers[y] {
                     self.pc += 2;
                 }
             }
-            0x09 => {
+            (0x09, _, _, _) => {
                 // Skip next instruction if register `x` doesn't equal register `y`
                 if self.registers[x] != self.registers[y] {
                     self.pc += 2;
                 }
             }
 
-            0x06 => {
+            (0x06, _, _, _) => {
                 // Set register `x` to `nn`
                 self.registers[x] = nn as u8;
             }
-            0x07 => {
+            (0x07, _, _, _) => {
                 // Add `nn` to register `x`
                 self.registers[x] = self.registers[x].overflowing_add(nn as u8).0;
             }
-            0x0A => {
+            (0x0A, _, _, _) => {
                 // Set index register to `nnn`
                 self.index = nnn;
             }
 
-            0x0D => {
+            (0x08, _, _, 0x00) => {
+                // Set register `x` to the value of register `y`
+                self.registers[x] = self.registers[y];
+            }
+            (0x08, _, _, 0x01) => {
+                // Set register `x` to `x` OR `y`
+                self.registers[x] |= self.registers[y];
+            }
+            (0x08, _, _, 0x02) => {
+                // Set register `x` to `x` AND `y`
+                self.registers[x] &= self.registers[y];
+            }
+            (0x08, _, _, 0x03) => {
+                // Set register `x` to `x` XOR `y`
+                self.registers[x] ^= self.registers[y];
+            }
+            (0x08, _, _, 0x04) => {
+                // Add register `y` to register `x`
+                // Set register `F` to 1 if there's an overflow, 0 otherwise
+                let (result, did_overflow) = self.registers[x].overflowing_add(self.registers[y]);
+
+                if did_overflow {
+                    self.registers[0xF] = 1;
+                } else {
+                    self.registers[0xF] = 0;
+                }
+
+                self.registers[x] = result;
+            }
+            (0x08, _, _, 0x05) => {
+                // Set register `x` to `x` - `y`
+                let (result, did_overflow) = self.registers[x].overflowing_sub(self.registers[y]);
+
+                if did_overflow {
+                    self.registers[0xF] = 1;
+                } else {
+                    self.registers[0xF] = 0;
+                }
+
+                self.registers[x] = result;
+            }
+            (0x08, _, _, 0x07) => {
+                // Set register `x` to `y` - `x`
+                let (result, did_overflow) = self.registers[y].overflowing_sub(self.registers[x]);
+
+                if did_overflow {
+                    self.registers[0xF] = 1;
+                } else {
+                    self.registers[0xF] = 0;
+                }
+
+                self.registers[x] = result;
+            }
+            /* (0x08, _, _, 0x06) => {}
+            (0x08, _, _, 0x0E) => {} */
+            (0x0D, _, _, _) => {
                 // Draw sprite at `x`, `y` with height `n` (DXYN)
                 let mut x_coord = self.registers[x] as usize % SCREEN_WIDTH;
                 let mut y_coord = self.registers[y] as usize % SCREEN_HEIGHT;
@@ -136,6 +203,8 @@ impl Machine {
                 let initial_x = x_coord;
 
                 self.registers[0x0F] = 0;
+
+                self.is_dirty = true;
 
                 for yline in 0..n {
                     let sprite_data = self.memory[self.index as usize + yline as usize];
@@ -164,7 +233,7 @@ impl Machine {
                 }
             }
             _ => {
-                panic!("Unknown instruction: {:04X}", instr);
+                error!("Unknown instruction: {:04X}", instr);
             }
         }
     }

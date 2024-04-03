@@ -8,8 +8,11 @@ const SCALE_FACTOR: i32 = 10;
 
 #[macroquad::main("CHIP-8 Emulator")]
 async fn main() {
+    env_logger::init();
+
     let path = env::args().nth(1).expect("No path specified");
     let cycle_to_log = env::args().nth(2).map(|n| n.parse::<u32>().unwrap());
+
     let rom = fs::read(path).unwrap();
     let mut machine = Machine::from_rom(&rom);
 
@@ -29,6 +32,8 @@ async fn main() {
         }
 
         clear_background(WHITE);
+
+        draw_text(format!("FPS: {}", get_fps()).as_str(), 0., 16., 32., RED);
 
         for y in 0..SCREEN_HEIGHT {
             for x in 0..SCREEN_WIDTH {
