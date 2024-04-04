@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use color_eyre::{eyre::WrapErr, Result};
 
-use machine::{Machine, Quirks, SCREEN_HEIGHT, SCREEN_WIDTH};
+use machine::{Machine, Quirks};
 use macroquad::prelude::*;
 
 const SCALE_FACTOR: i32 = 10;
@@ -50,17 +50,15 @@ async fn main() -> Result<()> {
 
         draw_text(format!("FPS: {}", get_fps()).as_str(), 0., 16., 32., RED);
 
-        for y in 0..SCREEN_HEIGHT {
-            for x in 0..SCREEN_WIDTH {
-                if machine.screen[(x, y)] == true {
-                    draw_rectangle(
-                        x as f32 * SCALE_FACTOR as f32,
-                        y as f32 * SCALE_FACTOR as f32,
-                        SCALE_FACTOR as f32,
-                        SCALE_FACTOR as f32,
-                        BLACK,
-                    );
-                }
+        for ((x, y), pixel_on) in machine.screen.indexed_iter() {
+            if *pixel_on {
+                draw_rectangle(
+                    x as f32 * SCALE_FACTOR as f32,
+                    y as f32 * SCALE_FACTOR as f32,
+                    SCALE_FACTOR as f32,
+                    SCALE_FACTOR as f32,
+                    BLACK,
+                );
             }
         }
 
