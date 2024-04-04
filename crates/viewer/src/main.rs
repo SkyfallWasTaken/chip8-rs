@@ -1,7 +1,7 @@
 use std::env;
 use std::fs;
 
-use machine::{Machine, SCREEN_HEIGHT, SCREEN_WIDTH};
+use machine::{Machine, Quirks, SCREEN_HEIGHT, SCREEN_WIDTH};
 use macroquad::prelude::*;
 
 const SCALE_FACTOR: i32 = 10;
@@ -14,7 +14,7 @@ async fn main() {
     let cycle_to_log = env::args().nth(2).map(|n| n.parse::<u32>().unwrap());
 
     let rom = fs::read(path).unwrap();
-    let mut machine = Machine::from_rom(&rom);
+    let mut machine = Machine::from_rom(&rom, Quirks::modern());
 
     let mut current_cycle = 1;
     loop {

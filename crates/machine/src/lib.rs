@@ -26,6 +26,22 @@ pub const SCREEN_HEIGHT: usize = 32;
 
 pub const PROGRAM_START: u16 = 0x200;
 
+pub struct Quirks {
+    pub set_vx_to_vy: bool,
+    pub fx_incr_index: bool,
+    pub set_vf_on_fx1e_overflow: bool,
+}
+
+impl Quirks {
+    pub fn modern() -> Self {
+        Self {
+            set_vx_to_vy: false,
+            fx_incr_index: false,
+            set_vf_on_fx1e_overflow: true,
+        }
+    }
+}
+
 pub struct Machine {
     pub memory: [u8; 4096],
     pub screen: Array2<bool>,
@@ -38,10 +54,12 @@ pub struct Machine {
     pub registers: [u8; 16],
 
     pub is_dirty: bool,
+
+    pub quirks: Quirks,
 }
 
 impl Machine {
-    pub fn from_rom(rom: &[u8]) -> Self {
+    pub fn from_rom(rom: &[u8], quirks: Quirks) -> Self {
         let mut memory = [0; 4096];
         memory[FONT_START as usize..FONT_START as usize + FONT.len()].copy_from_slice(&FONT);
         memory[PROGRAM_START as usize..PROGRAM_START as usize + rom.len()].copy_from_slice(&rom);
@@ -58,6 +76,8 @@ impl Machine {
             registers: [0; 16],
 
             is_dirty: false,
+
+            quirks,
         }
     }
 
@@ -161,40 +181,57 @@ impl Machine {
                 // Set register `F` to 1 if there's an overflow, 0 otherwise
                 let (result, did_overflow) = self.registers[x].overflowing_add(self.registers[y]);
 
+                self.registers[x] = result;
+
                 if did_overflow {
                     self.registers[0xF] = 1;
                 } else {
                     self.registers[0xF] = 0;
                 }
-
-                self.registers[x] = result;
             }
             (0x08, _, _, 0x05) => {
                 // Set register `x` to `x` - `y`
-                let (result, did_overflow) = self.registers[x].overflowing_sub(self.registers[y]);
+                let original_x = self.registers[x];
+                self.registers[x] = self.registers[x].overflowing_sub(self.registers[y]).0;
 
-                if did_overflow {
+                if original_x > self.registers[y] {
                     self.registers[0xF] = 1;
                 } else {
                     self.registers[0xF] = 0;
                 }
-
-                self.registers[x] = result;
             }
             (0x08, _, _, 0x07) => {
                 // Set register `x` to `y` - `x`
                 let (result, did_overflow) = self.registers[y].overflowing_sub(self.registers[x]);
 
+                self.registers[x] = result;
+
                 if did_overflow {
                     self.registers[0xF] = 1;
                 } else {
                     self.registers[0xF] = 0;
                 }
-
-                self.registers[x] = result;
             }
-            /* (0x08, _, _, 0x06) => {}
-            (0x08, _, _, 0x0E) => {} */
+            (0x08, _, _, 0x06) => {
+                // Shift the value of `x` one bit to the right (8XY6)
+                if self.quirks.set_vx_to_vy {
+                    self.registers[x] = self.registers[y];
+                }
+
+                self.registers[x] >>= 1;
+                self.registers[0xF] = self.registers[x] & 0x1;
+            }
+            (0x08, _, _, 0x0E) => {
+                // Shift the value of `x` one bit to the right (8XY6)
+                if self.quirks.set_vx_to_vy {
+                    self.registers[x] = self.registers[y];
+                }
+
+                // TODO: learn why this works
+                self.registers[x] <<= 1;
+                self.registers[0xF] = (self.registers[x] >> 7) & 0x1;
+            }
+
             (0x0D, _, _, _) => {
                 // Draw sprite at `x`, `y` with height `n` (DXYN)
                 let mut x_coord = self.registers[x] as usize % SCREEN_WIDTH;
@@ -202,7 +239,7 @@ impl Machine {
 
                 let initial_x = x_coord;
 
-                self.registers[0x0F] = 0;
+                self.registers[0xF] = 0;
 
                 self.is_dirty = true;
 
@@ -212,14 +249,14 @@ impl Machine {
                     for bit in get_bits(sprite_data) {
                         if bit && self.screen[(x_coord, y_coord)] {
                             self.screen[(x_coord, y_coord)] = false;
-                            self.registers[0x0F] = 1;
+                            self.registers[0xF] = 1;
                         } else if bit {
                             self.screen[(x_coord, y_coord)] = true;
                         }
 
                         // If you reach the right edge of the screen, stop drawing this row
                         x_coord += 1;
-                        if x_coord == SCREEN_WIDTH - 1 {
+                        if x_coord == SCREEN_WIDTH {
                             break;
                         }
                     }
@@ -232,6 +269,50 @@ impl Machine {
                     }
                 }
             }
+
+            (0x0F, _, 0x05, _) => {
+                // For FX55, the value of each variable register from V0 to VX inclusive
+                // (if X is 0, then only V0) will be stored in successive memory addresses,
+                // starting with the one that’s stored in I. V0 will be stored at the address
+                // in I, V1 will be stored in I + 1, and so on, until VX is stored in I + X.
+                for x in 0..=x {
+                    self.memory[self.index as usize + x] = self.registers[x];
+                    if self.quirks.fx_incr_index {
+                        self.index += 1
+                    }
+                }
+            }
+            (0x0F, _, 0x06, _) => {
+                // FX65 does the opposite; it takes the value stored at the
+                // memory addresses and loads them into the variable registers instead.
+                for x in 0..=x {
+                    self.registers[x] = self.memory[self.index as usize + x];
+                    if self.quirks.fx_incr_index {
+                        self.index += 1
+                    }
+                }
+            }
+
+            (0x0F, _, 0x01, 0x0E) => {
+                // The index register I will get the value in VX added to it.
+                let result = self.index.overflowing_add(self.registers[x] as u16).0;
+                self.index = result;
+                if (result <= 0x0FFF || result >= 0x1000) && self.quirks.set_vf_on_fx1e_overflow {
+                    self.registers[0xF] = 1;
+                }
+            }
+
+            (0x0F, _, 0x03, 0x03) => {
+                // Takes the number in VX (which is one byte, so it can be any number from 0 to 255) and
+                // converts it to three decimal digits, storing these digits in memory at
+                // the address in the index register I. For example, if VX contains 156 (or 9C in hexadecimal),
+                // it would put the number 1 at the address in I, 5 in address I + 1, and 6 in address I + 2.
+                let value = self.registers[x];
+                self.memory[self.index as usize] = value / 100;
+                self.memory[self.index as usize + 1] = (value / 10) % 10;
+                self.memory[self.index as usize + 2] = value % 10;
+            }
+
             _ => {
                 error!("Unknown instruction: {:04X}", instr);
             }
