@@ -35,7 +35,7 @@ pub struct Quirks {
 }
 
 impl Quirks {
-    pub fn modern() -> Self {
+    pub const fn modern() -> Self {
         Self {
             set_vx_to_vy: false,
             fx_incr_index: false,
@@ -44,6 +44,7 @@ impl Quirks {
     }
 }
 
+#[must_use]
 pub struct Machine {
     pub memory: [u8; 4096],
     pub screen: Array2<bool>,
@@ -64,7 +65,7 @@ impl Machine {
     pub fn from_rom(rom: &[u8], quirks: Quirks) -> Self {
         let mut memory = [0; 4096];
         memory[FONT_START as usize..FONT_START as usize + FONT.len()].copy_from_slice(&FONT);
-        memory[PROGRAM_START as usize..PROGRAM_START as usize + rom.len()].copy_from_slice(&rom);
+        memory[PROGRAM_START as usize..PROGRAM_START as usize + rom.len()].copy_from_slice(rom);
 
         Self {
             memory,
