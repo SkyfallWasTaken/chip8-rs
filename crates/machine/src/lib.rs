@@ -156,7 +156,7 @@ impl Machine {
             }
             (0x07, _, _, _) => {
                 // Add `nn` to register `x`
-                self.registers[x] = self.registers[x].overflowing_add(nn as u8).0;
+                self.registers[x] = self.registers[x].wrapping_add(nn as u8);
             }
             (0x0A, _, _, _) => {
                 // Set index register to `nnn`
@@ -195,7 +195,7 @@ impl Machine {
             (0x08, _, _, 0x05) => {
                 // Set register `x` to `x` - `y`
                 let original_x = self.registers[x];
-                self.registers[x] = self.registers[x].overflowing_sub(self.registers[y]).0;
+                self.registers[x] = self.registers[x].wrapping_sub(self.registers[y]);
 
                 if original_x >= self.registers[y] {
                     self.registers[0xF] = 1;
@@ -297,7 +297,7 @@ impl Machine {
 
             (0x0F, _, 0x01, 0x0E) => {
                 // The index register I will get the value in VX added to it.
-                let result = self.index.overflowing_add(self.registers[x] as u16).0;
+                let result = self.index.wrapping_add(self.registers[x] as u16);
                 self.index = result;
                 if (result <= 0x0FFF || result >= 0x1000) && self.quirks.set_vf_on_fx1e_overflow {
                     self.registers[0xF] = 1;
