@@ -26,6 +26,8 @@ pub const SCREEN_HEIGHT: usize = 32;
 
 pub const PROGRAM_START: u16 = 0x200;
 
+pub const CYCLES_PER_SECOND: usize = 700;
+
 pub struct Quirks {
     pub set_vx_to_vy: bool,
     pub fx_incr_index: bool,

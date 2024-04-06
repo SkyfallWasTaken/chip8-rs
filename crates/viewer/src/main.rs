@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use color_eyre::{eyre::WrapErr, Result};
 
-use machine::{Machine, Quirks};
+use machine::{Machine, Quirks, CYCLES_PER_SECOND};
 use macroquad::prelude::*;
 
 const SCALE_FACTOR: i32 = 10;
@@ -32,8 +32,14 @@ async fn main() -> Result<()> {
     let mut machine = Machine::from_rom(&rom, Quirks::modern());
 
     let mut current_cycle = 1;
+    let mut accumulator = 0.0;
+    let cps = CYCLES_PER_SECOND as f32;
     loop {
-        machine.cycle();
+        accumulator += get_frame_time();
+        while accumulator >= 1.0 / cps {
+            machine.cycle();
+            accumulator -= 1.0 / cps;
+        }
         current_cycle += 1;
 
         if is_key_released(KeyCode::Right) {
