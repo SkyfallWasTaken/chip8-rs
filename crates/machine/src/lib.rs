@@ -196,7 +196,7 @@ impl Machine {
                 let original_x = self.registers[x];
                 self.registers[x] = self.registers[x].overflowing_sub(self.registers[y]).0;
 
-                if original_x > self.registers[y] {
+                if original_x >= self.registers[y] {
                     self.registers[0xF] = 1;
                 } else {
                     self.registers[0xF] = 0;
@@ -204,11 +204,10 @@ impl Machine {
             }
             (0x08, _, _, 0x07) => {
                 // Set register `x` to `y` - `x`
-                let (result, did_overflow) = self.registers[y].overflowing_sub(self.registers[x]);
+                let original_y = self.registers[y];
+                self.registers[x] = self.registers[y].wrapping_sub(self.registers[x]);
 
-                self.registers[x] = result;
-
-                if did_overflow {
+                if original_y >= self.registers[x] {
                     self.registers[0xF] = 1;
                 } else {
                     self.registers[0xF] = 0;
