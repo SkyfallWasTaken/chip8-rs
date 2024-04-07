@@ -424,6 +424,11 @@ impl Machine {
                 self.index = FONT_START + (self.registers[x] & 0xF) as u16 * FONT_CHAR_SIZE as u16;
             }
 
+            (0x0C, _, _, _) => {
+                // CXNN generates a random number, binary ANDs it with the value NN, and puts the result in VX.
+                self.registers[x] = fastrand::u8(0..u8::MAX) & nn as u8;
+            }
+
             _ => {
                 error!("Unknown instruction: {:04X}", instr);
             }

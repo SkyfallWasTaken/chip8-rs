@@ -7,5 +7,6 @@ edition = "2021"
 
 [dependencies]
 color-eyre = "0.6.3"
+fastrand = "2.0.2"
 log = "0.4.21"
 ndarray = "0.15.6"
