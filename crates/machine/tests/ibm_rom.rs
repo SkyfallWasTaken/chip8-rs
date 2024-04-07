@@ -1,11 +1,11 @@
-use machine::{Machine, Quirks};
+use machine::{Drivers, Machine, Quirks};
 
 const CYCLE_NUM: usize = 20;
 
 #[test]
 fn ibm_rom() {
     let rom = include_bytes!("../../../roms/ibm-logo.ch8");
-    let mut machine = Machine::from_rom(rom, Quirks::modern());
+    let mut machine = Machine::from_rom(rom, Quirks::modern_chip8(), Drivers::noop());
 
     for _ in 0..CYCLE_NUM + 1 {
         machine.cycle();

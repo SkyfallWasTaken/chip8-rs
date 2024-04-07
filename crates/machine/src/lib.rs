@@ -35,11 +35,43 @@ pub struct Quirks {
 }
 
 impl Quirks {
-    pub const fn modern() -> Self {
+    pub const fn modern_chip8() -> Self {
         Self {
-            set_vx_to_vy: false,
+            set_vx_to_vy: true,
             fx_incr_index: false,
             set_vf_on_fx1e_overflow: true,
+        }
+    }
+}
+
+pub struct AudioDriver {
+    pub start_beep: fn(),
+    pub stop_beep: fn(),
+}
+
+pub struct InputDriver {
+    pub get_key_pressed: fn() -> Option<u8>,
+}
+
+pub struct Drivers {
+    pub audio: AudioDriver,
+    pub input: InputDriver,
+}
+
+impl Drivers {
+    pub fn new(audio: AudioDriver, input: InputDriver) -> Self {
+        Self { audio, input }
+    }
+
+    pub fn noop() -> Self {
+        Self {
+            audio: AudioDriver {
+                start_beep: || {},
+                stop_beep: || {},
+            },
+            input: InputDriver {
+                get_key_pressed: || None,
+            },
         }
     }
 }
@@ -59,10 +91,11 @@ pub struct Machine {
     pub is_dirty: bool,
 
     pub quirks: Quirks,
+    pub drivers: Drivers,
 }
 
 impl Machine {
-    pub fn from_rom(rom: &[u8], quirks: Quirks) -> Self {
+    pub fn from_rom(rom: &[u8], quirks: Quirks, drivers: Drivers) -> Self {
         let mut memory = [0; 4096];
         memory[FONT_START as usize..FONT_START as usize + FONT.len()].copy_from_slice(&FONT);
         memory[PROGRAM_START as usize..PROGRAM_START as usize + rom.len()].copy_from_slice(rom);
@@ -81,6 +114,20 @@ impl Machine {
             is_dirty: false,
 
             quirks,
+            drivers,
+        }
+    }
+
+    pub fn decr_timers(&mut self) {
+        if self.dt > 0 {
+            self.dt -= 1;
+        }
+
+        if self.st > 0 {
+            self.st -= 1;
+            if self.st == 0 {
+                (self.drivers.audio.stop_beep)();
+            }
         }
     }
 
@@ -88,6 +135,10 @@ impl Machine {
         let instr = ((self.memory[self.pc as usize] as u16) << 8)
             | self.memory[self.pc as usize + 1] as u16;
         self.pc += 2;
+
+        if self.st > 0 {
+            todo!("Start a beep")
+        }
 
         let first_nibble = (instr >> 12) & 0xF;
         let second_nibble = (instr >> 8) & 0xF;
@@ -314,6 +365,46 @@ impl Machine {
                 self.memory[self.index as usize] = value / 100;
                 self.memory[self.index as usize + 1] = (value / 10) % 10;
                 self.memory[self.index as usize + 2] = value % 10;
+            }
+
+            // Input
+            (0x0F, _, 0x00, 0x0A) => match (self.drivers.input.get_key_pressed)() {
+                // This instruction “blocks”; it stops executing instructions and waits for
+                // key input (or loops forever, unless a key is pressed).
+                // To loop while still decrementing the times, we just decrement the program counter.
+                // This means that the program will go to this instruction again and again, until
+                // a key is pressed.
+                Some(key) => {
+                    log::debug!("Key pressed: {:X}", key);
+                    self.registers[x] = key;
+                }
+                None => self.pc -= 2,
+            },
+            (0x0E, _, 0x09, 0x0E) => {
+                // Skip next instruction if key with the value of VX is pressed
+                if (self.drivers.input.get_key_pressed)() == Some(self.registers[x]) {
+                    self.pc += 2;
+                }
+            }
+            (0x0E, _, 0x0A, 0x01) => {
+                // Skip next instruction if key with the value of VX is not pressed
+                if (self.drivers.input.get_key_pressed)() != Some(self.registers[x]) {
+                    self.pc += 2;
+                }
+            }
+
+            // Timers
+            (0x0F, _, 0x00, 0x07) => {
+                // Set VX to the value of the delay timer
+                self.registers[x] = self.dt;
+            }
+            (0x0F, _, 0x01, 0x05) => {
+                // Sets the delay timer to the value in VX
+                self.dt = self.registers[x];
+            }
+            (0x0F, _, 0x01, 0x08) => {
+                // Sets the sound timer to the value in VX
+                self.st = self.registers[x];
             }
 
             _ => {

@@ -3,12 +3,20 @@ use std::path::PathBuf;
 
 use color_eyre::{eyre::WrapErr, Result};
 
-use machine::{Machine, Quirks, CYCLES_PER_SECOND};
+use machine::{AudioDriver, Drivers, InputDriver, Machine, Quirks, CYCLES_PER_SECOND};
 use macroquad::prelude::*;
 
 const SCALE_FACTOR: i32 = 10;
 
 use clap::Parser;
+
+#[rustfmt::skip]
+const KEY_MAP: [KeyCode; 16] = [
+    KeyCode::Key1, KeyCode::Key2, KeyCode::Key3, KeyCode::Key4,
+    KeyCode::Q, KeyCode::W, KeyCode::E, KeyCode::R,
+    KeyCode::A, KeyCode::S, KeyCode::D, KeyCode::F,
+    KeyCode::Z, KeyCode::X, KeyCode::C, KeyCode::V,
+];
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -29,12 +37,59 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     let rom = fs::read(cli.path).wrap_err("Failed to read ROM")?;
-    let mut machine = Machine::from_rom(&rom, Quirks::modern());
+
+    let mut machine = Machine::from_rom(
+        &rom,
+        Quirks::modern_chip8(),
+        Drivers {
+            audio: AudioDriver {
+                start_beep: || {
+                    log::info!("BEEP");
+                },
+                stop_beep: || {
+                    log::info!("BEEP STOP");
+                },
+            },
+            input: InputDriver {
+                get_key_pressed: || {
+                    KEY_MAP
+                        .iter()
+                        .filter_map(|key| {
+                            if is_key_down(*key) {
+                                Some(match key {
+                                    KeyCode::Key1 => 0x1,
+                                    KeyCode::Key2 => 0x2,
+                                    KeyCode::Key3 => 0x3,
+                                    KeyCode::Key4 => 0xC,
+                                    KeyCode::Q => 0x4,
+                                    KeyCode::W => 0x5,
+                                    KeyCode::E => 0x6,
+                                    KeyCode::R => 0xD,
+                                    KeyCode::A => 0x7,
+                                    KeyCode::S => 0x8,
+                                    KeyCode::D => 0x9,
+                                    KeyCode::F => 0xE,
+                                    KeyCode::Z => 0xA,
+                                    KeyCode::X => 0x0,
+                                    KeyCode::C => 0xB,
+                                    KeyCode::V => 0xF,
+                                    _ => unreachable!(),
+                                })
+                            } else {
+                                None
+                            }
+                        })
+                        .next()
+                },
+            },
+        },
+    );
 
     let mut current_cycle = 1;
     let mut accumulator = 0.0;
     let cps = CYCLES_PER_SECOND as f32;
     loop {
+        machine.decr_timers();
         accumulator += get_frame_time();
         while accumulator >= 1.0 / cps {
             machine.cycle();
