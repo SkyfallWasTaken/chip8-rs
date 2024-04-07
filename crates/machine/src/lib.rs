@@ -220,18 +220,19 @@ impl Machine {
                     self.registers[x] = self.registers[y];
                 }
 
+                let original_x = self.registers[x];
                 self.registers[x] >>= 1;
-                self.registers[0xF] = self.registers[x] & 0x1;
+                self.registers[0xF] = original_x & 0x1;
             }
             (0x08, _, _, 0x0E) => {
-                // Shift the value of `x` one bit to the right (8XY6)
+                // Shift the value of `x` one bit to the left (8XY6)
                 if self.quirks.set_vx_to_vy {
                     self.registers[x] = self.registers[y];
                 }
 
-                // TODO: learn why this works
+                let original_x = self.registers[x];
                 self.registers[x] <<= 1;
-                self.registers[0xF] = (self.registers[x] >> 7) & 0x1;
+                self.registers[0xF] = (original_x & 0x80) >> 7;
             }
 
             (0x0D, _, _, _) => {
