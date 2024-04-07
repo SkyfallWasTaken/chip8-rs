@@ -56,7 +56,7 @@ async fn main() -> Result<()> {
 
         draw_text(format!("FPS: {}", get_fps()).as_str(), 0., 16., 32., RED);
 
-        for ((x, y), pixel_on) in machine.screen.indexed_iter() {
+        for ((x, y), pixel_on) in machine.display.indexed_iter() {
             if *pixel_on {
                 draw_rectangle(
                     x as f32 * SCALE_FACTOR as f32,

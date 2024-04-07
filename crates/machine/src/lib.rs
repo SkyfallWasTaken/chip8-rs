@@ -21,8 +21,8 @@ pub const FONT: [u8; 80] = [
 ];
 pub const FONT_START: u16 = 0x050;
 
-pub const SCREEN_WIDTH: usize = 64;
-pub const SCREEN_HEIGHT: usize = 32;
+pub const DISPLAY_WIDTH: usize = 64;
+pub const DISPLAY_HEIGHT: usize = 32;
 
 pub const PROGRAM_START: u16 = 0x200;
 
@@ -47,7 +47,7 @@ impl Quirks {
 #[must_use]
 pub struct Machine {
     pub memory: [u8; 4096],
-    pub screen: Array2<bool>,
+    pub display: Array2<bool>,
     pub pc: u16,
     pub index: u16,
     pub stack: Vec<u16>,
@@ -69,7 +69,7 @@ impl Machine {
 
         Self {
             memory,
-            screen: Array2::from_elem([SCREEN_WIDTH, SCREEN_HEIGHT], false),
+            display: Array2::from_elem([DISPLAY_WIDTH, DISPLAY_HEIGHT], false),
             pc: PROGRAM_START,
             index: 0,
             stack: Vec::new(),
@@ -102,8 +102,8 @@ impl Machine {
 
         match (first_nibble, second_nibble, third_nibble, fourth_nibble) {
             (0x00, _, _, 0x00) => {
-                // Clear the screen
-                self.screen.fill(false);
+                // Clear the display
+                self.display.fill(false);
                 self.is_dirty = true;
             }
 
@@ -237,8 +237,8 @@ impl Machine {
 
             (0x0D, _, _, _) => {
                 // Draw sprite at `x`, `y` with height `n` (DXYN)
-                let mut x_coord = self.registers[x] as usize % SCREEN_WIDTH;
-                let mut y_coord = self.registers[y] as usize % SCREEN_HEIGHT;
+                let mut x_coord = self.registers[x] as usize % DISPLAY_WIDTH;
+                let mut y_coord = self.registers[y] as usize % DISPLAY_HEIGHT;
 
                 let initial_x = x_coord;
 
@@ -250,16 +250,16 @@ impl Machine {
                     let sprite_data = self.memory[self.index as usize + yline as usize];
 
                     for bit in get_bits(sprite_data) {
-                        if bit && self.screen[(x_coord, y_coord)] {
-                            self.screen[(x_coord, y_coord)] = false;
+                        if bit && self.display[(x_coord, y_coord)] {
+                            self.display[(x_coord, y_coord)] = false;
                             self.registers[0xF] = 1;
                         } else if bit {
-                            self.screen[(x_coord, y_coord)] = true;
+                            self.display[(x_coord, y_coord)] = true;
                         }
 
-                        // If you reach the right edge of the screen, stop drawing this row
+                        // If you reach the right edge of the display, stop drawing this row
                         x_coord += 1;
-                        if x_coord == SCREEN_WIDTH {
+                        if x_coord == DISPLAY_WIDTH {
                             break;
                         }
                     }
@@ -267,7 +267,7 @@ impl Machine {
                     x_coord = initial_x;
 
                     y_coord += 1;
-                    if y_coord == SCREEN_HEIGHT {
+                    if y_coord == DISPLAY_HEIGHT {
                         break;
                     }
                 }
