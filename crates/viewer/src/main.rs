@@ -3,10 +3,13 @@ use std::path::PathBuf;
 
 use color_eyre::{eyre::WrapErr, Result};
 
-use machine::{AudioDriver, Drivers, InputDriver, Machine, Quirks, CYCLES_PER_SECOND};
+use machine::{
+    AudioDriver, Drivers, InputDriver, Machine, Quirks,
+    CYCLES_PER_SECOND as DEFAULT_CYCLES_PER_SECOND,
+};
 use macroquad::prelude::*;
 
-const SCALE_FACTOR: i32 = 10;
+const SCALE_FACTOR: i32 = 15;
 
 use clap::Parser;
 
@@ -25,8 +28,16 @@ struct Cli {
     path: PathBuf,
 
     /// Logs debugging information after this cycle is executed
-    #[arg(long, short)]
+    #[arg(long)]
     cycle_to_log: Option<u32>,
+
+    /// Show the current FPS in the top left corner of the screen.
+    #[arg(long, short, default_value_t = false)]
+    show_fps: bool,
+
+    /// The number of cycles to execute per second.
+    #[arg(long, default_value_t = DEFAULT_CYCLES_PER_SECOND)]
+    cycles_per_second: usize,
 }
 
 #[macroquad::main("CHIP-8 Emulator")]
@@ -87,7 +98,7 @@ async fn main() -> Result<()> {
 
     let mut current_cycle = 1;
     let mut accumulator = 0.0;
-    let cps = CYCLES_PER_SECOND as f32;
+    let cps = cli.cycles_per_second as f32;
     loop {
         machine.decr_timers();
         accumulator += get_frame_time();
@@ -107,9 +118,11 @@ async fn main() -> Result<()> {
             }
         }
 
-        clear_background(WHITE);
+        clear_background(BLACK);
 
-        draw_text(format!("FPS: {}", get_fps()).as_str(), 0., 16., 32., RED);
+        if cli.show_fps {
+            draw_text(format!("FPS: {}", get_fps()).as_str(), 0., 16., 32., RED);
+        }
 
         for ((x, y), pixel_on) in machine.display.indexed_iter() {
             if *pixel_on {
@@ -118,7 +131,7 @@ async fn main() -> Result<()> {
                     y as f32 * SCALE_FACTOR as f32,
                     SCALE_FACTOR as f32,
                     SCALE_FACTOR as f32,
-                    BLACK,
+                    WHITE,
                 );
             }
         }
