@@ -32,6 +32,7 @@ pub struct Quirks {
     pub set_vx_to_vy: bool,
     pub fx_incr_index: bool,
     pub set_vf_on_fx1e_overflow: bool,
+    pub bxnn: bool,
 }
 
 impl Quirks {
@@ -40,6 +41,7 @@ impl Quirks {
             set_vx_to_vy: true,
             fx_incr_index: false,
             set_vf_on_fx1e_overflow: true,
+            bxnn: false,
         }
     }
 }
@@ -353,6 +355,15 @@ impl Machine {
                 self.index = result;
                 if (result <= 0x0FFF || result >= 0x1000) && self.quirks.set_vf_on_fx1e_overflow {
                     self.registers[0xF] = 1;
+                }
+            }
+
+            (0x0B, _, _, _) => {
+                if self.quirks.bxnn {
+                    // Jump to the address XNN, plus the value in the register VX.
+                    self.pc = nnn + self.registers[x] as u16;
+                } else {
+                    self.pc = nnn + self.registers[0] as u16;
                 }
             }
 
