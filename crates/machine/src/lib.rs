@@ -19,6 +19,7 @@ pub const FONT: [u8; 80] = [
     0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 ];
+pub const FONT_CHAR_SIZE: usize = 5;
 pub const FONT_START: u16 = 0x050;
 
 pub const DISPLAY_WIDTH: usize = 64;
@@ -139,7 +140,7 @@ impl Machine {
         self.pc += 2;
 
         if self.st > 0 {
-            todo!("Start a beep")
+            warn!("Start a beep")
         }
 
         let first_nibble = (instr >> 12) & 0xF;
@@ -416,6 +417,11 @@ impl Machine {
             (0x0F, _, 0x01, 0x08) => {
                 // Sets the sound timer to the value in VX
                 self.st = self.registers[x];
+            }
+
+            (0x0F, _, 0x02, 0x09) => {
+                // Set I to the address of the hexadecimal character in VX.
+                self.index = FONT_START + (self.registers[x] & 0xF) as u16 * FONT_CHAR_SIZE as u16;
             }
 
             _ => {
