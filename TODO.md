@@ -1,6 +1,6 @@
 # To-Dos
 
-- [ ] Implement random
+- [x] Implement random
 - [ ] Allow changing key mappings
 - [ ] Add beeping (currently just warns)
 - [ ] Fix rest of quirks
