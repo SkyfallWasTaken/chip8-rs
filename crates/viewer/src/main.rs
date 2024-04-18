@@ -5,11 +5,9 @@ use color_eyre::{eyre::WrapErr, Result};
 
 use machine::{
     AudioDriver, Drivers, InputDriver, Machine, Quirks,
-    CYCLES_PER_SECOND as DEFAULT_CYCLES_PER_SECOND,
+    CYCLES_PER_SECOND as DEFAULT_CYCLES_PER_SECOND, DISPLAY_HEIGHT, DISPLAY_WIDTH,
 };
 use macroquad::prelude::*;
-
-const SCALE_FACTOR: i32 = 15;
 
 use clap::Parser;
 
@@ -124,13 +122,17 @@ async fn main() -> Result<()> {
             draw_text(format!("FPS: {}", get_fps()).as_str(), 0., 16., 32., RED);
         }
 
+        let scale_factor: f32 = f32::min(
+            screen_width() / DISPLAY_WIDTH as f32,
+            screen_height() / DISPLAY_HEIGHT as f32,
+        );
         for ((x, y), pixel_on) in machine.display.indexed_iter() {
             if *pixel_on {
                 draw_rectangle(
-                    x as f32 * SCALE_FACTOR as f32,
-                    y as f32 * SCALE_FACTOR as f32,
-                    SCALE_FACTOR as f32,
-                    SCALE_FACTOR as f32,
+                    x as f32 * scale_factor,
+                    y as f32 * scale_factor,
+                    scale_factor,
+                    scale_factor,
                     WHITE,
                 );
             }
