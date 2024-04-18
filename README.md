@@ -2,15 +2,18 @@
 
 This is a basic CHIP-8 emulator, written in Rust. It uses [Macroquad](https://macroquad.rs) for the viewer, and is platform-agnostic (but currently only has one user - the viewer).
 
-![image](https://github.com/SkyfallWasTaken/chip8-rs/assets/55807755/7ea70ff1-9e0e-497d-8053-2e03aa9fe79e)
+![image](https://github.com/SkyfallWasTaken/chip8-rs/assets/55807755/942f0bea-c042-4ce3-85df-10b21a89340b)
 
 ## Running the emulator
+
 **Usage:** viewer [OPTIONS] \<PATH\>
 
 **Arguments:**
-- <PATH>  The path to the CHIP-8 ROM
+
+- \<PATH\>  The path to the CHIP-8 ROM
 
 **Options:**
+
 - **--cycle-to-log** <CYCLE_TO_LOG>
   
   Logs debugging information after this cycle is executed
